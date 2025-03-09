@@ -1,6 +1,17 @@
 const std = @import("std");
 const allocPrint = std.fmt.allocPrint;
 
+pub fn stringifyObject(allocator: std.mem.Allocator, object: anytype) ![]const u8 {
+    var string = std.ArrayList(u8).init(allocator);
+    defer string.deinit();
+    try std.json.stringify(object, .{}, string.writer());
+
+    const stringified = try string.toOwnedSlice();
+    return stringified;
+}
+
+const ascii = @embedFile("ascii.json");
+
 const Character = struct {
     name: []const u8,
     description: []const u8,
@@ -9,44 +20,47 @@ const Character = struct {
     oct: []const u8,
     hex: []const u8,
 
-    const ascii = @embedFile("ascii.json");
+    pub fn init(allocator: std.mem.Allocator, name: []const u8, description: []const u8, dec: u8, pad: bool) !Character {
+        const bin = if (pad) try allocPrint(allocator, "{b:0>8}", .{dec}) else try allocPrint(allocator, "{b}", .{dec});
+        const oct = if (pad) try allocPrint(allocator, "{o:0>3}", .{dec}) else try allocPrint(allocator, "{o}", .{dec});
+        const hex = if (pad) try allocPrint(allocator, "{X:0>2}", .{dec}) else try allocPrint(allocator, "{X}", .{dec});
+        return Character{
+            .name = name,
+            .description = description,
+            .dec = dec,
+            .bin = bin,
+            .oct = oct,
+            .hex = hex,
+        };
+    }
 
-    pub fn readTable(allocator: std.mem.Allocator) ![]const Character {
+    pub fn deinit(self: *const Character, allocator: std.mem.Allocator) void {
+        allocator.free(self.bin);
+        allocator.free(self.oct);
+        allocator.free(self.hex);
+    }
+
+    pub fn readTable(allocator: std.mem.Allocator, pad: bool) ![]const Character {
         const parsed = try std.json.parseFromSlice([]const []const []const u8, allocator, ascii, .{});
         defer parsed.deinit();
         const values = parsed.value;
 
         const characters = try allocator.alloc(Character, values.len);
         for (values, 0..) |data, value| {
-            const name = data[0];
-            const description = data[1];
-            const bin = try allocPrint(allocator, "{b:0>8}", .{value});
-            const oct = try allocPrint(allocator, "{o:0>3}", .{value});
-            const hex = try allocPrint(allocator, "{X:0>2}", .{value});
-            characters[value] = Character{
-                .name = name,
-                .description = description,
-                .dec = @intCast(value),
-                .bin = bin,
-                .oct = oct,
-                .hex = hex,
-            };
+            characters[value] = try Character.init(allocator, data[0], data[1], @intCast(value), pad);
         }
         return characters;
-    }
-
-    pub fn stringifyTable(allocator: std.mem.Allocator, characters: []const Character) ![]const u8 {
-        var string = std.ArrayList(u8).init(allocator);
-        try std.json.stringify(characters, .{}, string.writer());
-        return string.items;
     }
 };
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
-    const asciiTable = try Character.readTable(allocator);
-    const jsonString = try Character.stringifyTable(allocator, asciiTable);
+    const asciiTable = try Character.readTable(allocator, true);
+    defer for (asciiTable) |character| character.deinit(allocator);
+
+    const jsonString = try stringifyObject(allocator, asciiTable);
+    defer allocator.free(jsonString);
 
     const stdout = std.io.getStdOut().writer();
 
