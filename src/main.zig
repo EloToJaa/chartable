@@ -1,65 +1,14 @@
 const std = @import("std");
-const allocPrint = std.fmt.allocPrint;
-
-pub fn stringifyObject(allocator: std.mem.Allocator, object: anytype) ![]const u8 {
-    var string = std.ArrayList(u8).init(allocator);
-    defer string.deinit();
-    try std.json.stringify(object, .{}, string.writer());
-
-    const stringified = try string.toOwnedSlice();
-    return stringified;
-}
-
-const ascii = @embedFile("ascii.json");
-
-const Character = struct {
-    name: []const u8,
-    description: []const u8,
-    dec: u8,
-    bin: []const u8,
-    oct: []const u8,
-    hex: []const u8,
-
-    pub fn init(allocator: std.mem.Allocator, name: []const u8, description: []const u8, dec: u8, pad: bool) !Character {
-        const bin = if (pad) try allocPrint(allocator, "{b:0>8}", .{dec}) else try allocPrint(allocator, "{b}", .{dec});
-        const oct = if (pad) try allocPrint(allocator, "{o:0>3}", .{dec}) else try allocPrint(allocator, "{o}", .{dec});
-        const hex = if (pad) try allocPrint(allocator, "{X:0>2}", .{dec}) else try allocPrint(allocator, "{X}", .{dec});
-        return Character{
-            .name = name,
-            .description = description,
-            .dec = dec,
-            .bin = bin,
-            .oct = oct,
-            .hex = hex,
-        };
-    }
-
-    pub fn deinit(self: *const Character, allocator: std.mem.Allocator) void {
-        allocator.free(self.bin);
-        allocator.free(self.oct);
-        allocator.free(self.hex);
-    }
-
-    pub fn readTable(allocator: std.mem.Allocator, pad: bool) ![]const Character {
-        const parsed = try std.json.parseFromSlice([]const []const []const u8, allocator, ascii, .{});
-        defer parsed.deinit();
-        const values = parsed.value;
-
-        const characters = try allocator.alloc(Character, values.len);
-        for (values, 0..) |data, value| {
-            characters[value] = try Character.init(allocator, data[0], data[1], @intCast(value), pad);
-        }
-        return characters;
-    }
-};
+const cli = @import("cli");
+const lib = @import("lib/lib.zig");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
-    const asciiTable = try Character.readTable(allocator, true);
+    const asciiTable = try lib.Character.readTable(allocator, true);
     defer for (asciiTable) |character| character.deinit(allocator);
 
-    const jsonString = try stringifyObject(allocator, asciiTable);
+    const jsonString = try lib.json.stringifyObject(allocator, asciiTable);
     defer allocator.free(jsonString);
 
     const stdout = std.io.getStdOut().writer();
@@ -77,5 +26,14 @@ pub fn main() !void {
     //     });
     // }
 
-    // std.debug.print("Hello, world!\n{s}", .{ascii});
+    var r = try cli.AppRunner.init(allocator);
+
+    const app = cli.App{
+        .option_envvar_prefix = "CHARTABLE_", // Prefix for environment variables.
+        .author = "EloToJaa",
+        .version = "0.0.0",
+        .command = cli.Command{},
+    };
+
+    return r.run(&app);
 }
