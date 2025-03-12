@@ -10,10 +10,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zigcli_dep = b.dependency("zig-cli", .{ .target = target });
+    const zigcli_mod = zigcli_dep.module("zig-cli");
+
     const exe = b.addExecutable(.{
         .name = "chartable",
         .root_module = exe_mod,
     });
+    exe.root_module.addImport("zig-cli", zigcli_mod);
 
     b.installArtifact(exe);
 

@@ -3,7 +3,12 @@
     .version = "0.0.0",
     .fingerprint = 0xdbc981018612e86b, // Changing this has security and trust implications.
     .minimum_zig_version = "0.14.0",
-    .dependencies = .{},
+    .dependencies = .{
+        .cli = .{
+            .url = "git+https://github.com/sam701/zig-cli#76f63d9f5c92d36cd0c18c285eaa53a3a242810c",
+            .hash = "cli-0.9.0-2eKe_xL3AADV88mCR1h-KG6QKwdmYJlSjq6_ZgxqFcT5",
+        },
+    },
 
     .paths = .{
         "build.zig",
