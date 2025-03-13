@@ -17,25 +17,33 @@ fn parseArgs(config: *Config) cli.AppRunner.Error!cli.ExecFn {
         .command = cli.Command{
             .name = "chartable",
             .description = cli.Description{
-                .one_line = "Prints a table of ASCII characters.",
-                .detailed = "Prints a table of ASCII characters. Multi line",
+                .one_line = "Characters CLI utility.",
+                .detailed = "Characters CLI utility. Multi line",
             },
-            .options = try r.allocOptions(.{
-                cli.Option{
-                    .long_name = "pad",
-                    .help = "Pad the output with zeros.",
-                    .short_alias = 'p',
-                    .value_ref = r.mkRef(config.pad),
-                },
-                cli.Option{
-                    .long_name = "format",
-                    .help = "Output format.",
-                    .short_alias = 'f',
-                    .value_ref = r.mkRef(config.format),
-                },
-            }),
             .target = cli.CommandTarget{
-                .subcommands = try r.allocCommands(&.{}),
+                .subcommands = try r.allocCommands(&.{
+                    cli.Command{
+                        .name = "table",
+                        .description = cli.Description{
+                            .one_line = "Prints a table of ASCII characters.",
+                            .detailed = "Prints a table of ASCII characters. Multi line",
+                        },
+                        .options = try r.allocOptions(.{
+                            cli.Option{
+                                .long_name = "pad",
+                                .help = "Pad the output with zeros.",
+                                .short_alias = 'p',
+                                .value_ref = r.mkRef(config.pad),
+                            },
+                            cli.Option{
+                                .long_name = "format",
+                                .help = "Output format.",
+                                .short_alias = 'f',
+                                .value_ref = r.mkRef(config.format),
+                            },
+                        }),
+                    },
+                }),
             },
         },
     };
